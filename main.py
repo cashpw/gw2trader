@@ -10,6 +10,54 @@ from typing import List
 from gw2tpdb import Gw2TpDb
 from gw2tpdb.api.history import HistoryEntry
 
+# TODO:
+#
+# Answer the following for a given ItemId:
+#
+# 1. What's the expected return on investment (ROI) percentage should I expect for same-day flips?
+#
+#    - Use 30 day moving averages data
+#    - Calculate at both:
+#      - Buy at -0 standard deviations and sell at +0 standard deviations
+#      - Buy at -1 standard deviations and sell at +1 standard deviations
+#      - Buy at -2 standard deviations and sell at +2 standard deviations
+#
+# 2. What's the ceiling on gold invested?
+#
+#    - Assume I can buy and sell 5% of the daily volume
+#    - Assume I can buy and sell 10% of the daily volume
+#    - Integrate standard deviations here as well
+#
+# 3. What is my target entry (buy) price?
+# 4. What is my target exit (sell) price?
+#
+# Then stack-rank multiple ItemIds by those ROI% and invest gold in descending order
+#
+# Example:
+#
+# If I have 50 gold, and the stack rank comes out to:
+#
+# | Item | ROI  | Daily Investment Ceiling (gold) | Buy price (copper) | Sell price (copper) |
+# |------+------+---------------------------------+--------------------+---------------------|
+# | Foo  | 1.10 | 30                              | ?                  | ?                   |
+# | Bar  | 1.07 | 15                              | ?                  | ?                   |
+# | Baz  | 1.05 | 30                              | ?                  | ?                   |
+# | Laz  | 1.02 | 55                              | ?                  | ?                   |
+#
+# Then I should flip (1) 30 gold of Foo, (2) 15 gold of Bar, (3) 5 gold of Baz, and (4) 0 gold of Laz.
+#
+# Create a function to print "don't make me think"-style instructions which, using the example results
+# from above, would exclude Laz.
+#
+# Example:
+#
+# >>> flip_plan(...)
+# | Item | Buy quantity | Buy price (unit) | Buy quantity (stacks) | Buy price (per stack) | Sell price |
+# |------+--------------+------------------+-----------------------+-----------------------+------------|
+# | ...  | ...          | ...              | ...                   | ...                   | ...        |
+# | ...  | ...          | ...              | ...                   | ...                   | ...        |
+# | ...  | ...          | ...              | ...                   | ...                   | ...        |
+
 # TODO: Move to separate file?
 @dataclass
 class Item():
@@ -133,6 +181,7 @@ def analyze_daily_flip(item: Item) -> Analysis:
 
     df["buy_price_avg_-1stdev"] = df["buy_price_avg"] - (1 * df["buy_price_stdev"])
     df["buy_price_avg_-2stdev"] = df["buy_price_avg"] - (2 * df["buy_price_stdev"])
+
     df["sell_price_avg_+1stdev"] = df["sell_price_avg"] + (1 * df["sell_price_stdev"])
     df["sell_price_avg_+2stdev"] = df["sell_price_avg"] + (2 * df["sell_price_stdev"])
 
@@ -182,37 +231,6 @@ def analyze_daily_flip(item: Item) -> Analysis:
     #
     # 30dma return on selling 10% of
     df["roi_value_on_10%_sell_value_30d_rolling_sum_30d_ma"] = df["roi_value_on_10%_sell_value_30d_rolling_sum"].rolling(30).mean()
-
-    # TODO:
-    #
-    # Answer the following for a given ItemId:
-    #
-    # 1. What's the expected return on investment (ROI) percentage should I expect for same-day flips?
-    #
-    #    - Use 30 day moving averages data
-    #    - Calculate at both:
-    #      - Buy at -0 standard deviations and sell at +0 standard deviations
-    #      - Buy at -2 standard deviations and sell at +2 standard deviations
-    #
-    # 2. What's the ceiling on gold invested?
-    #
-    #    - Assume I can buy and sell 5% of the daily volume
-    #    - Assume I can buy and sell 10% of the daily volume
-    #    - Integrate standard deviations here as well
-    #
-    # Then stack-rank multiple ItemIds by those ROI% and invest gold in descending order
-    #
-    # Example:
-    #
-    # If I have 50 gold, and the stack rank comes out to:
-    #
-    # | Item | ROI  | Daily Investment Ceiling (gold) |
-    # |------+------+---------------------------------|
-    # | Foo  | 1.10 | 30                              |
-    # | Bar  | 1.07 | 15                              |
-    # | Baz  | 1.05 | 30                              |
-    #
-    # Then I should flip (1) 30 gold of Foo, (2) 15 gold of Bar, and (3) 5 gold of Baz.
 
     copper_to_gold(df, [
         "buy_value",

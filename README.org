@@ -1,0 +1,29 @@
+#+title: Guild Wars 2 Trader
+
+Know before you trade!
+
+* Setup
+
+1. (Optional) Create and enterl the virtual environment
+
+   #+begin_src sh :results output
+python -m venv .venv
+source venv/bin/activate
+   #+end_src
+
+2. Install =gw2tpdb=
+
+#+begin_src sh :results output
+python3 -m pip install git+https://github.com/cashpw/gw2tpdb.git
+#+end_src
+
+** Local development
+
+I install a local version of =gw2tpdb= to develop both in sync:
+
+#+begin_src sh :results output
+python3 -m pip install -e ~/proj/gw2tpdb
+#+end_src
+
+* TODO Usage
+* TODO Roadmap

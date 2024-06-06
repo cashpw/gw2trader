@@ -4,3 +4,4 @@
 tmp/
 
 .venv/
+gw2trader.sqlite

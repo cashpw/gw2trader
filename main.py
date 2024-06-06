@@ -208,7 +208,7 @@ def calc_profit(buy_price: int, sell_price: int) -> int:
 
     return revenue - listing_fee - exchange_fee
 
-db = Gw2TpDb(database_path="/tmp/gw2trader.sqlite", auto_update=True)
+db = Gw2TpDb(database_path="gw2trader.sqlite", auto_update=True)
 #db.populate_items()
 
 def analyze_daily_flip(item: Item, entries: List[HistoryEntry]) -> Analysis:

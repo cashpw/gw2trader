@@ -410,14 +410,15 @@ def print_flip_plan(items: List[Item], min_sell_volume: int = 0, min_buy_volume:
             "buy_stacks",
             #"max_invest",
             "buy_price",
-            "buy_stack_price",
+            #"buy_stack_price",
             "total_buy_price",
             "sell_price",
-            "sell_stack_price",
-            "invest_cum_sum"
+            #"sell_stack_price",
+            #"invest_cum_sum"
             #"invest",
         ]])
-def get_top_sold_items(count: int = 200, deadline_seconds: int = 5, page: int = 1) -> Optional[List[Item]]:
+
+def get_top_sold_items(count: int = 200, deadline_seconds: int = 20, page: int = 1) -> Optional[List[Item]]:
     """Return most sold items as known by GW2BLTC."""
 
     params = {
@@ -496,9 +497,18 @@ def save_item_list(path: str, items: List[Item]) -> None:
 #save_item_list("items.py", top_sold_items)
 #quit()
 
+"""
+# For testing
+a_few_items = [
+    Item(id=19721, name="Glob of Ectoplasm"),
+    Item(id=19683, name="Iron Ingot"),
+]
+"""
+
 print_flip_plan(min_buy_count=stack_size,
                 min_buy_price=Coins(5),
                 # Use stack_size*10 so our min 10%-of-volume is likely to be >1 stack
                 min_buy_volume=stack_size*10,
                 min_sell_volume=stack_size*10,
+                #items=a_few_items)
                 items=get_top_1000_sold_items_or_quit())

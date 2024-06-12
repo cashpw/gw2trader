@@ -211,10 +211,8 @@ def calc_profit(buy_price: int, sell_price: int) -> int:
 db = Gw2TpDb(database_path="gw2trader.sqlite", auto_update=True)
 #db.populate_items()
 
-def analyze_daily_flip(item: Item, entries: List[HistoryEntry]) -> Analysis:
+def analyze_daily_flip(item: Item, entries: List[HistoryEntry], moving_average_window_size: int) -> Analysis:
     """TODO"""
-
-    moving_average_window = 14
 
     df = history_to_pandas(sort_history_by_timestamp(entries))
 
@@ -242,27 +240,27 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry]) -> Analysis:
     #df["same_day_flip_2stdev_roi"] = (df["same_day_flip_profit_2stdev"] + df["buy_price_avg_-2stdev"]) / df["buy_price_avg_-2stdev"]
 
     # Moving averages
-    df[f"buy_sold_{moving_average_window}d_ma"] = df["buy_sold"].rolling(moving_average_window).mean()
+    df[f"buy_sold_{moving_average_window_size}d_ma"] = df["buy_sold"].rolling(moving_average_window_size).mean()
     #df["buy_value_30d_ma"] = df["buy_value"].rolling(30).mean()
 
     #df["sell_sold_7d_ma"] = df["sell_sold"].rolling(7).mean()
     #df["sell_sold_14d_ma"] = df["sell_sold"].rolling(14).mean()
     #df["sell_sold_30d_ma"] = df["sell_sold"].rolling(30).mean()
-    df[f"sell_sold_{moving_average_window}d_ma"] = df["sell_sold"].rolling(moving_average_window).mean()
+    df[f"sell_sold_{moving_average_window_size}d_ma"] = df["sell_sold"].rolling(moving_average_window_size).mean()
 
-    #df["sell_value_{moving_average_window}d_ma"] = df["sell_value"].rolling(moving_average_window).mean()
+    #df["sell_value_{moving_average_window_size}d_ma"] = df["sell_value"].rolling(moving_average_window_size).mean()
 
     #df["same_day_flip_roi_30d_ma"] = df["same_day_flip_roi"].rolling(30).mean()
     #df["same_day_flip_1stdev_roi_7d_ma"] = df["same_day_flip_1stdev_roi"].rolling(7).mean()
     #df["same_day_flip_1stdev_roi_14d_ma"] = df["same_day_flip_1stdev_roi"].rolling(14).mean()
     #df["same_day_flip_1stdev_roi_30d_ma"] = df["same_day_flip_1stdev_roi"].rolling(30).mean()
-    df[f"same_day_flip_1stdev_roi_{moving_average_window}d_ma"] = df["same_day_flip_1stdev_roi"].rolling(moving_average_window).mean()
+    df[f"same_day_flip_1stdev_roi_{moving_average_window_size}d_ma"] = df["same_day_flip_1stdev_roi"].rolling(moving_average_window_size).mean()
     #df["same_day_flip_2stdev_roi_30d_ma"] = df["same_day_flip_2stdev_roi"].rolling(30).mean()
 
     df["10%_sell_sold"] = df["sell_sold"] * 0.1
     #df["10%_sell_sold_7d_ma"] = df["10%_sell_sold"].rolling(7).mean()
     #df["10%_sell_sold_14d_ma"] = df["10%_sell_sold"].rolling(14).mean()
-    df[f"10%_sell_sold_{moving_average_window}d_ma"] = df["10%_sell_sold"].rolling(moving_average_window).mean()
+    df[f"10%_sell_sold_{moving_average_window_size}d_ma"] = df["10%_sell_sold"].rolling(moving_average_window_size).mean()
     #df["10%_sell_sold_30d_stdev"] = df["10%_sell_sold"].rolling(30).std()
     #df["10%_sell_sold_30d_ma+2stdev"] = df["10%_sell_sold_30d_ma"] + (2 * df["10%_sell_sold_30d_stdev"])
     #df["10%_sell_sold_30d_ma-2stdev"] = df["10%_sell_sold_30d_ma"] - (2 * df["10%_sell_sold_30d_stdev"])
@@ -282,7 +280,7 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry]) -> Analysis:
 
     return Analysis(item, df[[
         #"buy_sold",
-        f"buy_sold_{moving_average_window}d_ma",
+        f"buy_sold_{moving_average_window_size}d_ma",
         #"buy_value",
         #"buy_value_30d_ma",
         #"buy_price_avg",
@@ -292,7 +290,7 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry]) -> Analysis:
         #"sell_sold",
         #"sell_sold_7d_ma",
         #"sell_sold_14d_ma",
-        f"sell_sold_{moving_average_window}d_ma",
+        f"sell_sold_{moving_average_window_size}d_ma",
         #"sell_value",
         #"sell_value_30d_ma",
         #"sell_price_min",
@@ -308,14 +306,14 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry]) -> Analysis:
         #"same_day_flip_roi_30d_ma",
         #"same_day_flip_1stdev_roi_7d_ma",
         #"same_day_flip_1stdev_roi_14d_ma",
-        f"same_day_flip_1stdev_roi_{moving_average_window}d_ma",
+        f"same_day_flip_1stdev_roi_{moving_average_window_size}d_ma",
         #"same_day_flip_2stdev_roi_30d_ma",
 
         #"10%_sell_sold",
         #"10%_sell_sold_30d_ma-2stdev",
         #"10%_sell_sold_7d_ma",
         #"10%_sell_sold_14d_ma",
-        f"10%_sell_sold_{moving_average_window}d_ma",
+        f"10%_sell_sold_{moving_average_window_size}d_ma",
         #"10%_sell_sold_30d_ma+2stdev",
         #"10%_sell_value",
         #"10%_sell_value_30d_ma-2stdev",
@@ -368,7 +366,8 @@ def print_flip_plan(items: List[Item], min_sell_volume: int = 0, min_buy_volume:
         return None
     entries = entries_opt
 
-    df = pd.DataFrame([report.__dict__ for report in map(analysis_to_daily_flip_report, map(lambda item: analyze_daily_flip(item, entries[item.id]), items))])
+    moving_average_window_size = 14
+    df = pd.DataFrame([report.__dict__ for report in map(analysis_to_daily_flip_report, map(lambda item: analyze_daily_flip(item, entries[item.id][moving_average_window_size*2*-1:], moving_average_window_size), items))])
     df = remove_rows_lt(df, "return_on_investment", 1)
     df = remove_rows_lt(df, "sell_volume", min_sell_volume)
     df = remove_rows_lt(df, "buy_volume", min_buy_volume)
@@ -511,4 +510,4 @@ print_flip_plan(min_buy_count=stack_size,
                 min_buy_volume=stack_size*10,
                 min_sell_volume=stack_size*10,
                 #items=a_few_items)
-                items=get_top_1000_sold_items_or_quit())
+                items=get_top_1000_sold_items_or_quit()[:20])

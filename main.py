@@ -1,4 +1,5 @@
 import re
+import math
 import requests
 import logging
 
@@ -120,6 +121,7 @@ class DailyFlipReport():
     sell_price: Coins
     buy_volume: int
     sell_volume: int
+    outlier_count: int
 
 # TODO: Move to separate file?
 @dataclass
@@ -129,6 +131,7 @@ class Analysis():
     item: Item
     # TODO: Specify
     df: pd.DataFrame
+    outlier_count: int
 
 
 logging.basicConfig(
@@ -217,10 +220,36 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry], moving_average_w
     df = history_to_pandas(sort_history_by_timestamp(entries))
 
     df["buy_price_avg_-1stdev"] = df["buy_price_avg"] - (1 * df["buy_price_stdev"])
-    #df["buy_price_avg_-2stdev"] = df["buy_price_avg"] - (2 * df["buy_price_stdev"])
-
+    df[f"buy_price_avg_-1stdev_{moving_average_window_size}d_ma"] = df["buy_price_avg_-1stdev"].rolling(moving_average_window_size).mean()
     df["sell_price_avg_+1stdev"] = df["sell_price_avg"] + (1 * df["sell_price_stdev"])
-    #df["sell_price_avg_+2stdev"] = df["sell_price_avg"] + (2 * df["sell_price_stdev"])
+    df[f"sell_price_avg_+1stdev_{moving_average_window_size}d_ma"] = df["sell_price_avg_+1stdev"].rolling(moving_average_window_size).mean()
+
+    df["sell_price_avg_pct_change"] = df["sell_price_avg"].pct_change()
+    sell_price_pct_change_point_75_quantile = df["sell_price_avg_pct_change"].quantile(0.75)
+    sell_price_pct_change_point_25_quantile = df["sell_price_avg_pct_change"].quantile(0.25)
+    sell_price_pct_change_interquartile_range = sell_price_pct_change_point_75_quantile - sell_price_pct_change_point_25_quantile
+    df["outlier_sell_price_avg_pct_change"] = df["sell_price_avg_pct_change"].apply(np.absolute) > sell_price_pct_change_point_75_quantile + (1.5 * sell_price_pct_change_interquartile_range)
+
+    df["buy_price_avg_pct_change"] = df["buy_price_avg"].pct_change()
+    buy_price_pct_change_point_75_quantile = df["buy_price_avg_pct_change"].quantile(0.75)
+    buy_price_pct_change_point_25_quantile = df["buy_price_avg_pct_change"].quantile(0.25)
+    buy_price_pct_change_interquartile_range = buy_price_pct_change_point_75_quantile - buy_price_pct_change_point_25_quantile
+    df["outlier_buy_price_avg_pct_change"] = df["buy_price_avg_pct_change"].apply(np.absolute) > buy_price_pct_change_point_75_quantile + (1.5 * buy_price_pct_change_interquartile_range)
+
+    sell_outlier_count = len([x for x in df["outlier_sell_price_avg_pct_change"][-1*moving_average_window_size:] if x])
+    buy_outlier_count = len([x for x in df["outlier_buy_price_avg_pct_change"][-1*moving_average_window_size:] if x])
+    """
+    if (item.id == 36038):
+        logger.debug(item)
+        logger.debug(sell_price_pct_change_point_75_quantile + (1.5 * sell_price_pct_change_interquartile_range))
+        logger.debug(df[[
+            "utc_timestamp",
+            #"sell_price_avg_pct_change",
+            "outlier_sell_price_avg_pct_change",
+            #"buy_price_avg_pct_change",
+            "outlier_buy_price_avg_pct_change",
+        ]])
+    """
 
     """
     df["same_day_flip_profit"] = same_day_flip_profit(df,
@@ -228,15 +257,15 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry], moving_average_w
                                     sell_price_column_name="sell_price_avg")
     """
     df["same_day_flip_profit_1stdev"] = same_day_flip_profit(df,
-                                    buy_price_column_name="buy_price_avg_-1stdev",
-                                    sell_price_column_name="sell_price_avg_+1stdev")
+                                    buy_price_column_name=f"buy_price_avg_-1stdev_{moving_average_window_size}d_ma",
+                                    sell_price_column_name=f"sell_price_avg_+1stdev_{moving_average_window_size}d_ma")
     """
     df["same_day_flip_profit_2stdev"] = same_day_flip_profit(df,
                                     buy_price_column_name="buy_price_avg_-2stdev",
                                     sell_price_column_name="sell_price_avg_+1stdev")
     """
     #df["same_day_flip_roi"] = (df["same_day_flip_profit"] + df["buy_price_avg"]) / df["buy_price_avg"]
-    df["same_day_flip_1stdev_roi"] = (df["same_day_flip_profit_1stdev"] + df["buy_price_avg_-1stdev"]) / df["buy_price_avg_-1stdev"]
+    df["same_day_flip_1stdev_roi"] = (df["same_day_flip_profit_1stdev"] + df[f"buy_price_avg_-1stdev_{moving_average_window_size}d_ma"]) / df[f"buy_price_avg_-1stdev_{moving_average_window_size}d_ma"]
     #df["same_day_flip_2stdev_roi"] = (df["same_day_flip_profit_2stdev"] + df["buy_price_avg_-2stdev"]) / df["buy_price_avg_-2stdev"]
 
     # Moving averages
@@ -254,13 +283,13 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry], moving_average_w
     #df["same_day_flip_1stdev_roi_7d_ma"] = df["same_day_flip_1stdev_roi"].rolling(7).mean()
     #df["same_day_flip_1stdev_roi_14d_ma"] = df["same_day_flip_1stdev_roi"].rolling(14).mean()
     #df["same_day_flip_1stdev_roi_30d_ma"] = df["same_day_flip_1stdev_roi"].rolling(30).mean()
-    df[f"same_day_flip_1stdev_roi_{moving_average_window_size}d_ma"] = df["same_day_flip_1stdev_roi"].rolling(moving_average_window_size).mean()
+    #df[f"same_day_flip_1stdev_roi_{moving_average_window_size}d_ma"] = df["same_day_flip_1stdev_roi"].rolling(moving_average_window_size).mean()
     #df["same_day_flip_2stdev_roi_30d_ma"] = df["same_day_flip_2stdev_roi"].rolling(30).mean()
 
-    df["10%_sell_sold"] = df["sell_sold"] * 0.1
+    #df["10%_sell_sold"] = df["sell_sold"] * 0.1
     #df["10%_sell_sold_7d_ma"] = df["10%_sell_sold"].rolling(7).mean()
     #df["10%_sell_sold_14d_ma"] = df["10%_sell_sold"].rolling(14).mean()
-    df[f"10%_sell_sold_{moving_average_window_size}d_ma"] = df["10%_sell_sold"].rolling(moving_average_window_size).mean()
+    #df[f"10%_sell_sold_{moving_average_window_size}d_ma"] = df["10%_sell_sold"].rolling(moving_average_window_size).mean()
     #df["10%_sell_sold_30d_stdev"] = df["10%_sell_sold"].rolling(30).std()
     #df["10%_sell_sold_30d_ma+2stdev"] = df["10%_sell_sold_30d_ma"] + (2 * df["10%_sell_sold_30d_stdev"])
     #df["10%_sell_sold_30d_ma-2stdev"] = df["10%_sell_sold_30d_ma"] - (2 * df["10%_sell_sold_30d_stdev"])
@@ -284,7 +313,8 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry], moving_average_w
         #"buy_value",
         #"buy_value_30d_ma",
         #"buy_price_avg",
-        "buy_price_avg_-1stdev",
+        #"buy_price_avg_-1stdev",
+        f"buy_price_avg_-1stdev_{moving_average_window_size}d_ma",
         #"buy_price_avg_-2stdev",
 
         #"sell_sold",
@@ -295,7 +325,8 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry], moving_average_w
         #"sell_value_30d_ma",
         #"sell_price_min",
         #"sell_price_avg",
-        "sell_price_avg_+1stdev",
+        #"sell_price_avg_+1stdev",
+        f"sell_price_avg_+1stdev_{moving_average_window_size}d_ma",
         #"sell_price_avg_+2stdev",
 
         #"buy_price_avg_-2stdev",
@@ -304,16 +335,16 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry], moving_average_w
         #"same_day_flip_profit",
         #"same_day_flip_roi",
         #"same_day_flip_roi_30d_ma",
-        #"same_day_flip_1stdev_roi_7d_ma",
+        "same_day_flip_1stdev_roi",
         #"same_day_flip_1stdev_roi_14d_ma",
-        f"same_day_flip_1stdev_roi_{moving_average_window_size}d_ma",
+        #f"same_day_flip_1stdev_roi_{moving_average_window_size}d_ma",
         #"same_day_flip_2stdev_roi_30d_ma",
 
         #"10%_sell_sold",
         #"10%_sell_sold_30d_ma-2stdev",
         #"10%_sell_sold_7d_ma",
         #"10%_sell_sold_14d_ma",
-        f"10%_sell_sold_{moving_average_window_size}d_ma",
+        #f"10%_sell_sold_{moving_average_window_size}d_ma",
         #"10%_sell_sold_30d_ma+2stdev",
         #"10%_sell_value",
         #"10%_sell_value_30d_ma-2stdev",
@@ -323,14 +354,15 @@ def analyze_daily_flip(item: Item, entries: List[HistoryEntry], moving_average_w
         #"roi_value_on_10%_sell_value_30d_rolling_sum",
         #"roi_value_on_10%_sell_value_30d_rolling_std",
         #"roi_value_on_10%_sell_value_30d_rolling_sum_30d_ma",
-    ]])
+        #f"sell_price_avg_pct_change_{moving_average_window_size}d_ma",
+    ]], outlier_count=buy_outlier_count+sell_outlier_count)
 
 def analysis_to_daily_flip_report(analysis: Analysis) -> DailyFlipReport:
     """TODO"""
 
     gw2bltc_url = f"https://www.gw2bltc.com/en/item/{analysis.item.id}"
-    buy_volume, buy_price, sell_volume, sell_price, roi, ten_percent_sold_count = analysis.df.iloc[-1]
-    max_buy_count = ten_percent_sold_count if roi > 1.0 else 0
+    buy_volume, buy_price, sell_volume, sell_price, roi = analysis.df.iloc[-1]
+    max_buy_count = min((buy_volume // 10), (sell_volume // 10)) if roi > 1.0 else 0
 
     return DailyFlipReport(
         gw2bltc_url=gw2bltc_url,
@@ -343,6 +375,7 @@ def analysis_to_daily_flip_report(analysis: Analysis) -> DailyFlipReport:
         buy_price=Coins(buy_price),
         max_invest=Coins(buy_price * max_buy_count),
         sell_price=Coins(sell_price),
+        outlier_count=analysis.outlier_count,
     )
 
 
@@ -383,9 +416,9 @@ def print_flip_plan(items: List[Item], min_sell_volume: int = 0, min_buy_volume:
     df.sort_values(by="return_on_investment", ascending=False, inplace=True)
     df.reset_index(drop=True, inplace=True)
 
-    df["roi%"] = (df["return_on_investment"] - 1.0) * 100
+    df["roi"] = df["return_on_investment"] - 1
     #df["max_buy_stacks"] = df["max_buy_count"] / stack_size
-    df["buy_stacks"] = (df["max_buy_count"] / stack_size).apply(np.floor)
+    df["buy_stacks"] = (df["max_buy_count"] / stack_size).apply(np.floor).apply(math.trunc)
     df["buy_stack_price"] = df["buy_price"] * stack_size
     df["total_buy_price"] = df["buy_price"] * stack_size * df["buy_stacks"]
     df["sell_stack_price"] = df["sell_price"] * stack_size
@@ -397,13 +430,43 @@ def print_flip_plan(items: List[Item], min_sell_volume: int = 0, min_buy_volume:
     #out_of_money_row_index = None if df[df["invest_cum_sum"] >= budget].empty else df[df["invest_cum_sum"] >= budget].index[0]
 
     #print(f"Given a budget of {budget}, you should flip:")
+
+    for index, row in df[[
+        #"item_id",
+        "item_name",
+        "gw2bltc_url",
+        "outlier_count",
+        "roi",
+        #"buy_volume",
+        #"sell_volume",
+        #"max_buy_count",
+        #"max_buy_count",
+        #"max_buy_stacks",
+        "buy_stacks",
+        #"max_invest",
+        "buy_price",
+        #"buy_stack_price",
+        "total_buy_price",
+        "sell_price",
+        #"sell_stack_price",
+        #"invest_cum_sum"
+        #"invest",
+    ]].iterrows():
+        #print(item_name, url, outlier_count, roi, buy_satcks, buy_price, total_buy_price, sell_price)
+        print(row)
+        print(row["gw2bltc_url"])
+
     with pd.option_context("display.max_rows", None, "display.max_columns", None, "display.max_colwidth", None, "display.width", None):
         #print(df.loc[:out_of_money_row_index][[
         print(df[[
             #"item_id",
             "item_name",
             "gw2bltc_url",
-            "roi%",
+            "outlier_count",
+            "roi",
+            #"buy_volume",
+            #"sell_volume",
+            #"max_buy_count",
             #"max_buy_count",
             #"max_buy_stacks",
             "buy_stacks",
@@ -415,7 +478,11 @@ def print_flip_plan(items: List[Item], min_sell_volume: int = 0, min_buy_volume:
             #"sell_stack_price",
             #"invest_cum_sum"
             #"invest",
-        ]])
+        ]].to_string(formatters={
+            'roi': '{:,.2%}'.format,
+            'buy_volume': '{:.0f}'.format,
+            'sell_volume': '{:.0f}'.format,
+        }))
 
 def get_top_sold_items(count: int = 200, deadline_seconds: int = 20, page: int = 1) -> Optional[List[Item]]:
     """Return most sold items as known by GW2BLTC."""

@@ -62,12 +62,12 @@ class Coins():
         """Return human-readable representation of coinage."""
 
         if self._gold == 0 and self._silver == 0:
-            return f"{self._copper:>2}c"
+            return f"{self._copper}c"
 
         if self._gold == 0:
-            return f"{self._silver:>2}s {self._copper:>2}c"
+            return f"{self._silver}s {self._copper:>2}c"
 
-        return f"{self._gold: >2}g {self._silver: >2}s {self._copper: >2}c"
+        return f"{self._gold}g {self._silver: >2}s {self._copper: >2}c"
 
     def copper(self) -> int:
         """Return value in copper."""

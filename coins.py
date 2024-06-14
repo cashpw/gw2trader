@@ -36,27 +36,27 @@ class Coins():
     def __gt__(self, other: Self) -> bool:
         """Return true if A is > B."""
 
-        return self.copper() > other.copper()
+        return self.to_copper() > other.to_copper()
 
     def __ge__(self, other: Self) -> bool:
         """Return true if A is >= B."""
 
-        return self.copper() >= other.copper()
+        return self.to_copper() >= other.to_copper()
 
     def __add__(self, other: Self) -> Self:
         """Return the sum of two Coins."""
 
-        return Coins(self.copper() + other.copper())
+        return Coins(self.to_copper() + other.to_copper())
 
     def __sub__(self, other: Self) -> Self:
         """Return the difference of two Coins."""
 
-        return Coins(self.copper() - other.copper())
+        return Coins(self.to_copper() - other.to_copper())
 
     def __mul__(self, other: int|float) -> Self:
         """Return the produt of OTHER and self."""
 
-        return Coins(self.copper() * other)
+        return Coins(self.to_copper() * other)
 
     def _human_readable(self) -> str:
         """Return human-readable representation of coinage."""
@@ -69,7 +69,7 @@ class Coins():
 
         return f"{self._gold}g {self._silver: >2}s {self._copper: >2}c"
 
-    def copper(self) -> int:
+    def to_copper(self) -> int:
         """Return value in copper."""
 
         return self._copper + (self._silver * 100) + (self._gold * 10000)

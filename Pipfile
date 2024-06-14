@@ -10,6 +10,7 @@ bs4 = "*"
 gw2tpdb = {file = "../gw2tpdb"}
 jupyterlab = "*"
 plotly = "*"
+ipywidgets = "*"
 
 [dev-packages]
 
